@@ -1,0 +1,18 @@
+{
+  "model_type": "stage2",
+  "epochs_trained": 5,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "hidden_units": 128,
+  "n_lstm_layers": 2,
+  "dropout": 0.1,
+  "l2_reg": 0.0001,
+  "d_in": 7,
+  "history_len": 200,
+  "prediction_horizon": 50,
+  "train_samples": 4025,
+  "val_samples": 862,
+  "best_val_loss": 0.175188809633255,
+  "timestamp": "20260609_021657",
+  "device": "CPU"
+}

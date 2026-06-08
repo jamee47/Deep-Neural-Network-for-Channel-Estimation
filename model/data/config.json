@@ -1,0 +1,33 @@
+{
+  "delta_t": 0.1,
+  "duration_s": 600.0,
+  "snr_clear_mean_db": 15.0,
+  "snr_clear_std_db": 0.5,
+  "snr_clear_tau_s": 300.0,
+  "rain_probability": 0.15,
+  "rain_atten_max_db": 12.0,
+  "rain_onset_tau_s": 60.0,
+  "rain_event_mean_s": 300.0,
+  "rain_event_std_s": 120.0,
+  "scint_std_db": 0.4,
+  "scint_tau_s": 2.0,
+  "phase_drift_rate": 0.01,
+  "phase_scint_std": 0.05,
+  "phase_scint_tau_s": 1.0,
+  "num_blocks": 16,
+  "n_max": 64,
+  "c_pilot": 2,
+  "pilots_per_block_range": [
+    32,
+    64
+  ],
+  "modcod_update_interval": 10,
+  "history_len": 200,
+  "prediction_horizon": 50,
+  "train_frac": 0.7,
+  "val_frac": 0.15,
+  "test_frac": 0.15,
+  "output_dir": "model/data",
+  "seed": 42,
+  "mode": "stage2"
+}
