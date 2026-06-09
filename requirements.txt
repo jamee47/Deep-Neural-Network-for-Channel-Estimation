@@ -1,4 +1,5 @@
-tensorflow>=2.16.1
+# TensorFlow (use tensorflow-cpu if you want a lighter, CPU-only installation)
+tensorflow>=2.15.0
 keras>=3.0.0
 numpy>=1.23.5
 pandas>=1.5.3

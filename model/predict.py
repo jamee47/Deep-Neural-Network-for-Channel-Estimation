@@ -53,6 +53,20 @@ def load_test_data(data_dir):
     return data["X"], data["Y"]
 
 
+def load_full_test_data(data_dir):
+    """Load the test split for the full model from preprocessed data."""
+    data_dir = Path(data_dir)
+    test_path = data_dir / "full_test.npz"
+
+    if not test_path.exists():
+        print(f"  ERROR: Full-model test data not found at {test_path}")
+        print("  Make sure to run preprocess.py with '--mode full'.")
+        sys.exit(1)
+
+    data = np.load(test_path)
+    return data["pilot_blocks"], data["pilot_masks"], data["modcod"], data["Y"]
+
+
 def load_norm_stats(data_dir):
     """Load normalization statistics (for un-normalizing predictions if needed)."""
     stats_path = Path(data_dir) / "norm_stats.npz"
@@ -242,19 +256,7 @@ def predict(args):
     tf, keras, build_stage2_only_model, build_two_stage_model, select_modcod = \
         import_tf_and_model()
 
-    # --- Load test data ---
-    print("\n[1/5] Loading test data ...")
-    data_dir = Path(args.data_dir)
-    X_test, Y_test = load_test_data(data_dir)
-    print(f"       X_test shape: {X_test.shape}")
-    print(f"       Y_test shape: {Y_test.shape}")
-
-    # Infer dimensions
-    history_len = X_test.shape[1]
-    d_in = X_test.shape[2]
-    prediction_horizon = Y_test.shape[1]
-
-    # Load training config if available
+    # Load training config if available (do this first to know the model type)
     weights_dir = Path(args.weights_dir)
     train_config_path = weights_dir / "train_config.json"
     if train_config_path.exists():
@@ -264,9 +266,36 @@ def predict(args):
     else:
         train_cfg = {}
 
+    model_type = train_cfg.get("model_type", args.model)
+
+    # --- Load test data ---
+    print("\n[1/5] Loading test data ...")
+    data_dir = Path(args.data_dir)
+    if model_type == "stage2":
+        X_test, Y_test = load_test_data(data_dir)
+        print(f"       X_test shape: {X_test.shape}")
+        print(f"       Y_test shape: {Y_test.shape}")
+
+        # Infer dimensions
+        history_len = X_test.shape[1]
+        d_in = X_test.shape[2]
+        prediction_horizon = Y_test.shape[1]
+        X_predict = X_test
+    else:
+        pb_test, pm_test, mc_test, Y_test = load_full_test_data(data_dir)
+        print(f"       Pilot blocks shape : {pb_test.shape}")
+        print(f"       Pilot masks shape  : {pm_test.shape}")
+        print(f"       MODCOD shape       : {mc_test.shape}")
+        print(f"       Y_test shape       : {Y_test.shape}")
+
+        history_len = pb_test.shape[1]
+        d_in = 7
+        prediction_horizon = Y_test.shape[1]
+        X_test = pb_test
+        X_predict = [pb_test, pm_test, mc_test]
+
     # --- Build model and load weights ---
     print("\n[2/5] Building model and loading weights ...")
-    model_type = train_cfg.get("model_type", args.model)
 
     if model_type == "stage2":
         model = build_stage2_only_model(
@@ -303,7 +332,7 @@ def predict(args):
 
     # --- Run Prediction ---
     print(f"\n[3/5] Running predictions on {X_test.shape[0]} test samples ...")
-    Y_pred = model.predict(X_test, batch_size=args.batch_size, verbose=1)
+    Y_pred = model.predict(X_predict, batch_size=args.batch_size, verbose=1)
     print(f"       Predictions shape: {Y_pred.shape}")
 
     # --- Compute Metrics ---

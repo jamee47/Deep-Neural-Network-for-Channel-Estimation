@@ -84,6 +84,44 @@ def create_tf_dataset(X, Y, batch_size, shuffle=True, buffer_size=10000):
     return ds
 
 
+def load_full_data(data_dir):
+    """Load pre-extracted full-model features from .npz files."""
+    data_dir = Path(data_dir)
+    train_path = data_dir / "full_train.npz"
+    val_path = data_dir / "full_val.npz"
+
+    if not train_path.exists() or not val_path.exists():
+        print(f"\n  ERROR: Full-model npz files not found in '{data_dir}'.")
+        print("  Make sure to run preprocess.py with '--mode full'.")
+        sys.exit(1)
+
+    train = np.load(train_path)
+    val = np.load(val_path)
+
+    return {
+        "pilot_blocks_train": train["pilot_blocks"],
+        "pilot_masks_train": train["pilot_masks"],
+        "modcod_train": train["modcod"],
+        "Y_train": train["Y"],
+        "pilot_blocks_val": val["pilot_blocks"],
+        "pilot_masks_val": val["pilot_masks"],
+        "modcod_val": val["modcod"],
+        "Y_val": val["Y"],
+    }
+
+
+def create_tf_dataset_full(pilot_blocks, pilot_masks, modcod, Y, batch_size, shuffle=True, buffer_size=10000):
+    """Create a tf.data.Dataset for the full 3-input model."""
+    ds = tf.data.Dataset.from_tensor_slices((
+        (pilot_blocks, pilot_masks, modcod),
+        Y
+    ))
+    if shuffle:
+        ds = ds.shuffle(buffer_size=buffer_size)
+    ds = ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    return ds
+
+
 # ============================================================================
 # Callbacks
 # ============================================================================
@@ -214,17 +252,47 @@ def train(args):
         print("  Run preprocess.py first to generate the dataset.")
         sys.exit(1)
 
-    data = load_stage2_data(data_dir)
-    X_train, Y_train = data["X_train"], data["Y_train"]
-    X_val, Y_val = data["X_val"], data["Y_val"]
+    if args.model == "stage2":
+        data = load_stage2_data(data_dir)
+        X_train, Y_train = data["X_train"], data["Y_train"]
+        X_val, Y_val = data["X_val"], data["Y_val"]
 
-    print(f"       Train: X={X_train.shape}, Y={Y_train.shape}")
-    print(f"       Val  : X={X_val.shape}, Y={Y_val.shape}")
+        print(f"       Train: X={X_train.shape}, Y={Y_train.shape}")
+        print(f"       Val  : X={X_val.shape}, Y={Y_val.shape}")
 
-    # Infer dimensions from data
-    history_len = X_train.shape[1]
-    d_in = X_train.shape[2]
-    prediction_horizon = Y_train.shape[1]
+        history_len = X_train.shape[1]
+        d_in = X_train.shape[2]
+        prediction_horizon = Y_train.shape[1]
+
+        train_ds = create_tf_dataset(X_train, Y_train, args.batch_size, shuffle=True)
+        val_ds = create_tf_dataset(X_val, Y_val, args.batch_size, shuffle=False)
+    else:
+        data = load_full_data(data_dir)
+        pb_train, pm_train, mc_train, Y_train = (
+            data["pilot_blocks_train"], data["pilot_masks_train"],
+            data["modcod_train"], data["Y_train"]
+        )
+        pb_val, pm_val, mc_val, Y_val = (
+            data["pilot_blocks_val"], data["pilot_masks_val"],
+            data["modcod_val"], data["Y_val"]
+        )
+
+        print(f"       Train: pilots={pb_train.shape}, masks={pm_train.shape}, modcod={mc_train.shape}, Y={Y_train.shape}")
+        print(f"       Val  : pilots={pb_val.shape}, masks={pm_val.shape}, modcod={mc_val.shape}, Y={Y_val.shape}")
+
+        history_len = pb_train.shape[1]
+        d_in = 7  # d_s (5) + modcod (2)
+        prediction_horizon = Y_train.shape[1]
+
+        # Define aliases so that subsequent logging/shape code works
+        X_train, X_val = pb_train, pb_val
+
+        train_ds = create_tf_dataset_full(
+            pb_train, pm_train, mc_train, Y_train, args.batch_size, shuffle=True
+        )
+        val_ds = create_tf_dataset_full(
+            pb_val, pm_val, mc_val, Y_val, args.batch_size, shuffle=False
+        )
 
     # Load config if available
     config_path = data_dir / "config.json"
@@ -234,10 +302,6 @@ def train(args):
         print(f"       Config loaded from: {config_path}")
     else:
         data_cfg = {}
-
-    # Create tf.data pipelines
-    train_ds = create_tf_dataset(X_train, Y_train, args.batch_size, shuffle=True)
-    val_ds = create_tf_dataset(X_val, Y_val, args.batch_size, shuffle=False)
 
     # --- Build Model ------------------------------------------------------
     print("\n[2/4] Building model ...")
