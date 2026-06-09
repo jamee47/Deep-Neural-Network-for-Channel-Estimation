@@ -1,0 +1,47 @@
+{
+  "csv_path": "E:\\AVIONICS\\Thesis\\DNN\\Deep-Neural-Network-for-Channel-Estimation\\dataset\\channel_dataset.csv",
+  "mode": "stage2",
+  "n_pilots_per_frame": 792,
+  "num_blocks": 22,
+  "n_max": 36,
+  "c_pilot": 2,
+  "d_s": 5,
+  "d_in": 7,
+  "history_len": 200,
+  "prediction_horizon": 50,
+  "total_frames": 414,
+  "total_samples": 165,
+  "n_train": 115,
+  "n_val": 24,
+  "n_test": 26,
+  "train_frac": 0.7,
+  "val_frac": 0.15,
+  "test_frac": 0.15,
+  "feature_order": [
+    "channel_gain",
+    "attenuation_dB",
+    "phase_rad",
+    "snr_dB",
+    "noise_var",
+    "modcod_M",
+    "modcod_R"
+  ],
+  "norm_mean": [
+    3.6230885982513428,
+    3.340573310852051,
+    0.11766505241394043,
+    11.659529685974121,
+    7.331943511962891,
+    10.756174087524414,
+    0.7228741645812988
+  ],
+  "norm_std": [
+    0.7598764896392822,
+    4.316105842590332,
+    1.8212991952896118,
+    4.316093921661377,
+    2.135098695755005,
+    10.270956993103027,
+    0.11041669547557831
+  ]
+}

@@ -10,12 +10,13 @@ The framework extracts channel quality features from received pilots within a fr
 1. [Overview & Architecture](#-overview--architecture)
 2. [Project Structure](#-project-structure)
 3. [Key Modules & Symbol Index](#-key-modules--symbol-index)
-4. [Dataset Requirements](#-dataset-requirements)
-5. [Quick Start Guide](#-quick-start-guide)
+4. [Prerequisites & Installation](#-prerequisites--installation)
+5. [Dataset Requirements](#-dataset-requirements)
+6. [Quick Start Guide](#-quick-start-guide)
    - [1. Data Preprocessing](#1-data-preprocessing)
    - [2. Model Training](#2-model-training)
    - [3. Inference & Prediction](#3-inference--prediction)
-6. [Supported ACM Modes (ETSI Standard)](#-supported-acm-modes-etsi-standard)
+7. [Supported ACM Modes (ETSI Standard)](#-supported-acm-modes-etsi-standard)
 
 ---
 
@@ -106,6 +107,26 @@ Below are references to the core implementation modules and their key classes/fu
   - [predict](file:///e:/AVIONICS/Thesis/DNN/Deep-Neural-Network-for-Channel-Estimation/model/predict.py#L235): Loads trained checkpoints, runs predictions, and serializes results.
   - [compute_metrics](file:///e:/AVIONICS/Thesis/DNN/Deep-Neural-Network-for-Channel-Estimation/model/predict.py#L68): Evaluates prediction accuracy via MSE, MAE, and RMSE.
   - [plot_predictions](file:///e:/AVIONICS/Thesis/DNN/Deep-Neural-Network-for-Channel-Estimation/model/predict.py#L128): Produces time-series prediction curves and error distribution histograms.
+
+---
+
+## 🛠️ Prerequisites & Installation
+
+### Requirements
+- **Python**: `3.9` to `3.11` is recommended.
+- **Hardware**: Compatible with both GPU and CPU. Note that training the model on CPU may require a smaller batch size or sequence history window to prevent out-of-memory (OOM) errors.
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/jamee47/Deep-Neural-Network-for-Channel-Estimation.git
+   cd Deep-Neural-Network-for-Channel-Estimation
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ---
 
