@@ -7,12 +7,13 @@ expected by the Two-Stage CNN + Bi-LSTM model.
 
 Expected CSV columns
 --------------------
-    pilot_re_1 ... pilot_re_P   : Real part of P received pilot symbols
-    pilot_im_1 ... pilot_im_P   : Imaginary part of P received pilot symbols
-    H_true_re                    : True channel response (real)
-    H_true_im                    : True channel response (imaginary)
+    frame_idx                    : Frame index (integer)
+    real_pilot_1 ... real_pilot_P : Real part of P received pilot symbols
+    imag_pilot_1 ... imag_pilot_P : Imaginary part of P received pilot symbols
+    htrue_real                   : True channel response (real)
+    htrue_imag                   : True channel response (imaginary)
     snr_dB                       : SNR in dB
-    nVar                         : Noise variance (linear)
+    nvar                         : Noise variance (linear)
     modcod                       : MODCOD index
     rainAtt_dB                   : Rain attenuation (dB)
 
@@ -41,7 +42,9 @@ import pandas as pd
 # ============================================================================
 # CONFIGURATION – Update path to match your setup
 # ============================================================================
-DEFAULT_CSV_PATH = r"E:\AVIONICS\Thesis\DNN\data\channel_dataset.csv"
+DEFAULT_CSV_PATH = str(
+    Path(__file__).resolve().parent.parent / "dataset" / "channel_dataset.csv"
+)
 
 
 # ============================================================================
@@ -80,7 +83,7 @@ def modcod_index_to_features(index):
 # CSV Loader
 # ============================================================================
 def load_csv(csv_path, delimiter=","):
-    """Load the CSV file exported from MATLAB."""
+    """Load the CSV file exported from MATLAB and drop rows with NaN."""
     csv_path = Path(csv_path)
     if not csv_path.exists():
         print(f"\n  ERROR: CSV file not found: {csv_path}")
@@ -91,7 +94,16 @@ def load_csv(csv_path, delimiter=","):
     df = pd.read_csv(csv_path, delimiter=delimiter)
     df.columns = df.columns.str.strip()
 
-    print(f"  Shape : {df.shape[0]:,} rows x {df.shape[1]:,} columns")
+    print(f"  Raw shape : {df.shape[0]:,} rows x {df.shape[1]:,} columns")
+
+    # Drop rows containing NaN (incomplete frames from MATLAB export)
+    n_before = len(df)
+    df = df.dropna().reset_index(drop=True)
+    n_dropped = n_before - len(df)
+    if n_dropped > 0:
+        print(f"  Dropped {n_dropped} rows with NaN values")
+
+    print(f"  Clean shape : {df.shape[0]:,} rows x {df.shape[1]:,} columns")
     return df
 
 
@@ -99,13 +111,13 @@ def load_csv(csv_path, delimiter=","):
 # Column Detection & Parsing
 # ============================================================================
 def detect_pilot_columns(df):
-    """Auto-detect pilot_re_* and pilot_im_* columns and their count."""
+    """Auto-detect real_pilot_* and imag_pilot_* columns and their count."""
     re_cols = sorted(
-        [c for c in df.columns if c.startswith("pilot_re_")],
+        [c for c in df.columns if c.startswith("real_pilot_")],
         key=lambda c: int(c.split("_")[-1]),
     )
     im_cols = sorted(
-        [c for c in df.columns if c.startswith("pilot_im_")],
+        [c for c in df.columns if c.startswith("imag_pilot_")],
         key=lambda c: int(c.split("_")[-1]),
     )
 
@@ -120,18 +132,37 @@ def detect_pilot_columns(df):
 
 
 def detect_metadata_columns(df):
-    """Check which metadata columns exist in the CSV."""
-    expected = ["H_true_re", "H_true_im", "snr_dB", "nVar", "modcod", "rainAtt_dB"]
+    """Check which metadata columns exist in the CSV.
+
+    Uses a canonical key -> list-of-aliases mapping so the rest of
+    the pipeline always references stable keys regardless of the
+    actual column names in the CSV.
+    """
+    # canonical_key -> list of accepted column names (case-insensitive)
+    aliases = {
+        "H_true_re":  ["htrue_real", "h_true_re", "H_true_re"],
+        "H_true_im":  ["htrue_imag", "h_true_im", "H_true_im"],
+        "snr_dB":     ["snr_dB", "snr_db", "SNR_dB"],
+        "nVar":       ["nvar", "nVar", "noise_var"],
+        "modcod":     ["modcod", "MODCOD"],
+        "rainAtt_dB": ["rainAtt_dB", "rainatt_db", "rain_att_dB"],
+    }
+
+    # Build a lower-case lookup of actual columns
+    col_lower = {c.lower(): c for c in df.columns}
+
     found = {}
-    for col in expected:
-        # Case-insensitive matching
-        matches = [c for c in df.columns if c.lower() == col.lower()]
-        if matches:
-            found[col] = matches[0]
-            print(f"    {col:15s} -> '{matches[0]}'")
+    for key, names in aliases.items():
+        matched = None
+        for name in names:
+            if name.lower() in col_lower:
+                matched = col_lower[name.lower()]
+                break
+        found[key] = matched
+        if matched:
+            print(f"    {key:15s} -> '{matched}'")
         else:
-            found[col] = None
-            print(f"    {col:15s} -> NOT FOUND (will derive or fill zeros)")
+            print(f"    {key:15s} -> NOT FOUND (will derive or fill zeros)")
     return found
 
 
@@ -562,10 +593,10 @@ def parse_args():
                         "'full': also save pilot blocks for CNN.")
     p.add_argument("--delimiter", type=str, default=",",
                    help="CSV column delimiter.")
-    p.add_argument("--num_blocks", type=int, default=16,
-                   help="B: number of pilot blocks per frame.")
-    p.add_argument("--n_max", type=int, default=50,
-                   help="N_max: max pilots per block (auto-increased if needed).")
+    p.add_argument("--num_blocks", type=int, default=22,
+                   help="B: number of pilot blocks per frame (DVB-S2: 792/36=22).")
+    p.add_argument("--n_max", type=int, default=36,
+                   help="N_max: pilots per block (DVB-S2 standard: 36).")
     p.add_argument("--history_len", type=int, default=200,
                    help="T_h: input history window length (frames).")
     p.add_argument("--horizon", type=int, default=50,
